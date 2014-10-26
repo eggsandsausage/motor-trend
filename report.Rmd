@@ -1,0 +1,87 @@
+Automatic vs Manual Transmission: Which will take you further?
+========================================================
+## Summary
+We look at the relationship between the number of miles per gallon a car can travel and how this relates to the type of transmission (automatic or manual). Extracting the four covariates with the lowest correlation we build a simple linear regression model to capture a resonably unbiased relationship between transmission type and miles per gallon. According to the model (adjusted R^2 0.77 and all coefficients significance < 0.05 in a t-test), cars with manual transmission generally travels 5.1 miles further per gallon of gasoline. It should be noted that allthough the fuel consumption for manual transmission seems more efficient, the standard deviation for the coefficient is quite large (95% confidence interval ranges from 1.1 to 9.0 increase in mpg), making it difficult to quantify the strength of this relationship.
+
+## Introduction
+The aim of this article is to examine the relationship between the number of miles per gallon a car can travel and how this is related to its type of transmission: manual or automatic. Below is a plot illustrating this relation if isolated, displaying a clear difference in mpg across the two types of transmission. However, this model is quite a simplification and we might find confounding variables if we try to build a model that includes a more complete set of the cars and their different properties.
+
+```{r echo=FALSE}
+library(datasets)
+boxplot(mpg~am, data=mtcars)
+```
+Transmission type and its effect on miles per gallon, 1 is for manual transmission.
+
+## Choosing a model
+The goal of this artile is to build a model that both possesses good explanatory power as well as resonable estimates on the actual impact of the relevant car properties. For the first part, we will focus on adjusted R^2, which measures the models ability to explain the variance in outcome. For the latter part, we will look at the p-value and confidence intervall of the regressor of choice, ie transmission type effect on mpg, in order to quantify the actual impact.
+
+Since our dataset is quite small (32 observations) the key is to strike a balance between capturing as much of the variance in as few variables as possible. This is to maintain an acceptable number of degrees of freedom, which will be required to maintain certainty in the actual coefficients of the covariates. 
+
+I've choosen 4 models to compare:
+
+1. mpg as an outcome only of transmission type (mostly out of curiosity)
+2. mpg as an outcome of the 4 covariates with least internal correlation (less correlation should capture more of the variance per coviariate)
+3. mpg as an outcome of the 6 covariates with least internal correlation
+4. mpg as an outcome of all the covariates
+
+Finding the covariates with least internal correlation was done simply by creating a Pearson correlation matrix, and summing the total correlation by each of the covariates. 
+
+```{r}
+M <- cor(mtcars[,-1])
+sort(rowSums(abs(M)))
+```
+
+Looking at an analysis of the variance we can see that each added covariate is improving the model as the sum of the squared residuals (RSS), ie the part of the variance that isn't explained by our model, is reduced.
+
+```{r, echo=FALSE}
+
+fitTransmissionOnly <- lm(mpg ~ am, data=mtcars)
+fitLowCor4 <- lm(mpg~carb+qsec+gear+am, data=mtcars)
+fitLowCor6 <- lm(mpg~carb+qsec+gear+am+drat+vs, data=mtcars)
+fitAll <- lm(mpg~., data=mtcars)
+anova(fitTransmissionOnly,fitLowCor4, fitLowCor6, fitAll)
+
+```
+
+Looking at the explanatory power of these models (adjusted R^2), we can see that a more complete covariate set (models 3 and 4) creates strong model. However, these models also comes with uncertainty of the actual value of the coefficients, something we can observe by looking at the p-values of the different models.
+
+```{r, echo=FALSE}
+data.frame(model = 
+             c("model 1",
+               "model 2", 
+               "model 3", 
+               "model 4"),
+           AdjRSquared = 
+             c(summary(fitTransmissionOnly)$adj.r.squared,
+               summary(fitLowCor4)$adj.r.squared,
+               summary(fitLowCor6)$adj.r.squared,
+               summary(fitAll)$adj.r.squared))
+print("model 1")
+summary(fitTransmissionOnly)$coefficient
+print("model 2")
+summary(fitLowCor4)$coefficient
+print("model 3")
+summary(fitLowCor6)$coefficient
+print("model 4")
+summary(fitAll)$coefficient
+```
+
+## Conclusion
+
+All in all, to maintain both a reasonably unbiased estimate of the variance and precision of the coefficients we should choose model 2. This model states that a car with manual transmission generally travel 5.1 miles further per gallon than a car with automatic transmission. One should note that the standard deviation of coeffiecient is quite large, leaving the exact relationship between the two somewhat uncertain.
+
+Confidence interval for increase in fuel efficiency for manual transmission:
+```{r, echo=FALSE}
+sumCoef <- summary(fitLowCor4)$coefficients
+sumCoef[5,1] + c(-1,1) * qt(0.975, df=fitLowCor4$df) * sumCoef[5,2]
+```
+
+
+## Appendix: Residual Analysis
+
+A brief analysis of of the residuals shows no signs of hetroskedacity or missing variables (residuals vs fitted values). The residuals are centered around zero which is what we would expect in a model with an intercept. Judging by the QQ plot the residuals seem to follow normality.
+```{r, echo=FALSE}
+par(mfrow=c(2,2))
+plot(fitLowCor4)
+```
+
